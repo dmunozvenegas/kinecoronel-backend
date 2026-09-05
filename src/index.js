@@ -9,17 +9,22 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // ---------------------------------------------------------------------
-// 🌟 UN SOLO CORS MAESTRO Y SEGURO (Limpio)
+// 🌟 UN SOLO CORS MAESTRO Y SEGURO
 // ---------------------------------------------------------------------
 app.use(cors({
-    origin: ['http://localhost:5173', 'https://sistema.kinecoronel.cl'],
+    origin: [
+        'http://localhost:5173', 
+        'https://sistema.kinecoronel.cl',
+        'https://kinecoronel-frontend.vercel.app', // Agrega tu URL de Vercel aquí
+        /\.vercel\.app$/                           // Expresión regular para permitir cualquier subdominio de Vercel
+    ],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true
 }));
 
 app.use(express.json()); 
-app.use('/uploads', express.static('uploads'));  
+app.use('/uploads', express.static('uploads'));
 
 // ---------------------------------------------------------------------
 // 1. RESPUESTAS JSON ESTÁNDAR
