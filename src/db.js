@@ -1,27 +1,20 @@
 const { Pool } = require('pg');
 
 const pool = new Pool({
-    connectionString: process.env.DATABASE_URL, 
+    // Tus variables de conexión actuales (ya sea connectionString o DB_USER, etc.)
+    connectionString: process.env.DATABASE_URL,
     ssl: {
         rejectUnauthorized: false
     },
-    connectionTimeoutMillis: 10000, 
-    idleTimeoutMillis: 30000,       
-    max: 10                         
+    // NUEVAS REGLAS PARA NEONDB:
+    idleTimeoutMillis: 30000,       // Cierra conexiones inactivas después de 30 segundos (evita zombies)
+    connectionTimeoutMillis: 5000,  // Tiempo máximo para intentar conectarse
+    max: 10                         // Límite de conexiones simultáneas para no saturar la capa gratuita
 });
 
-// --- RADAR DE CONEXIÓN ---
-pool.connect((err, client, release) => {
-    if (err) {
-        console.error('❌ Error conectando a Neon DB:', err.message);
-    } else {
-        console.log('✅ Conexión a Neon DB exitosa!');
-        release(); // libera el cliente
-    }
-});
-
+// Este bloque es vital para capturar las caídas de Neon sin que el servidor responda con error al frontend
 pool.on('error', (err, client) => {
-    console.error('🐘 Alerta inactiva de Neon DB ignorada:', err.message);
+    console.error('🐘 Alerta inactiva de Neon DB capturada:', err.message);
 });
 
 module.exports = pool;

@@ -166,17 +166,17 @@ router.get('/sesiones/:orden_id', async (req, res) => {
 
 // 5. POST: Registrar una nueva sesión (Incrementa contador)
 router.post('/sesion', async (req, res) => {
-    const { orden_id, evolucion, terapias } = req.body;
+    // Agregamos 'fecha' a lo que recibimos del body
+    const { orden_id, evolucion, terapias, fecha } = req.body; 
     const terapiasStr = terapias ? JSON.stringify(terapias) : null;
 
     try {
-        // Registrar la sesión
+        // Incluimos la fecha en el INSERT
         await pool.query(
-            'INSERT INTO sesiones (orden_id, evolucion, terapias) VALUES ($1, $2, $3)',
-            [orden_id, evolucion, terapiasStr]
+            'INSERT INTO sesiones (orden_id, evolucion, terapias, fecha) VALUES ($1, $2, $3, $4)',
+            [orden_id, evolucion, terapiasStr, fecha]
         );
 
-        // Actualizar contador de la orden
         const ordenActualizada = await pool.query(
             'UPDATE ordenes_medicas SET sesiones_realizadas = sesiones_realizadas + 1 WHERE id = $1 RETURNING *',
             [orden_id]
@@ -195,13 +195,15 @@ router.post('/sesion', async (req, res) => {
 // 6. PUT: Editar una sesión existente
 router.put('/sesion/:id', async (req, res) => {
     const { id } = req.params;
-    const { evolucion, terapias } = req.body;
+    // Agregamos 'fecha' a lo que recibimos del body
+    const { evolucion, terapias, fecha } = req.body;
     const terapiasStr = terapias ? JSON.stringify(terapias) : null;
 
     try {
+        // Incluimos la fecha en el UPDATE
         await pool.query(
-            'UPDATE sesiones SET evolucion = $1, terapias = $2 WHERE id = $3',
-            [evolucion, terapiasStr, id]
+            'UPDATE sesiones SET evolucion = $1, terapias = $2, fecha = $3 WHERE id = $4',
+            [evolucion, terapiasStr, fecha, id]
         );
         res.status(200).json({ mensaje: "Sesión actualizada correctamente" });
     } catch (error) {

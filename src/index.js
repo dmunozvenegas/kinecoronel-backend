@@ -51,6 +51,7 @@ const pacientesRoutes = require('./routes/pacientes');
 const ordenesRoutes = require('./routes/ordenes');
 const authRoutes = require('./routes/auth');
 const bonosRoutes = require('./routes/bonos'); 
+const ReportesRoutes = require('./routes/reportes'); 
 
 // ---------------------------------------------------------------------
 // 3. ENRUTAMIENTO DOBLE (Protección total contra recortes de cPanel)
@@ -61,6 +62,7 @@ app.use('/api/pacientes', pacientesRoutes);
 app.use('/api/ordenes', ordenesRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/bonos', bonosRoutes); 
+app.use('/api/reportes', ReportesRoutes);
 
 // Opción B: Fallback para cPanel
 app.use('/agenda', agendaRoutes);
