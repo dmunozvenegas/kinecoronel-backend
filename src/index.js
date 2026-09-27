@@ -52,6 +52,7 @@ const ordenesRoutes = require('./routes/ordenes');
 const authRoutes = require('./routes/auth');
 const bonosRoutes = require('./routes/bonos'); 
 const ReportesRoutes = require('./routes/reportes'); 
+const BotiKineRoutes = require('./routes/botikine');
 
 // ---------------------------------------------------------------------
 // 3. ENRUTAMIENTO DOBLE (Protección total contra recortes de cPanel)
@@ -63,6 +64,7 @@ app.use('/api/ordenes', ordenesRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/bonos', bonosRoutes); 
 app.use('/api/reportes', ReportesRoutes);
+app.use('/api/botikine', BotiKineRoutes);
 
 // Opción B: Fallback para cPanel
 app.use('/agenda', agendaRoutes);
@@ -70,6 +72,8 @@ app.use('/pacientes', pacientesRoutes);
 app.use('/ordenes', ordenesRoutes);
 app.use('/auth', authRoutes);
 app.use('/bonos', bonosRoutes); 
+app.use('/reportes', ReportesRoutes);
+app.use('/botikine', BotiKineRoutes);
 
 // ---------------------------------------------------------------------
 // 4. ARRANQUE DEL SERVIDOR

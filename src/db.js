@@ -1,4 +1,5 @@
-const { Pool } = require('pg');
+const { Pool } = require('pg'); 
+const { MercadoPagoConfig, Preference, Payment } = require('mercadopago');
 
 const pool = new Pool({
     // Tus variables de conexión actuales (ya sea connectionString o DB_USER, etc.)

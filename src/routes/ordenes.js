@@ -62,13 +62,19 @@ router.get('/paciente/:paciente_id', async (req, res) => {
 // 3. POST: Crear una nueva orden médica (Con subida de archivos)
 router.post('/', upload.fields([
     { name: 'archivo_orden', maxCount: 1 },
-    { name: 'archivos_examenes', maxCount: 5 }
+    { name: 'archivos_examenes', maxCount: 5 },
+    { name: 'archivos_examenes[]', maxCount: 5 }
 ]), async (req, res) => {
     const { paciente_id, diagnostico, medico_derivante, sesiones_indicadas, fecha_emision } = req.body;
     
     let rutaOrden = null;
     let rutasExamenes = null;
-
+    // Y para capturarlo, revisamos si viene con o sin corchetes:
+    const examenesFiles = req.files['archivos_examenes'] || req.files['archivos_examenes[]'];
+    if (examenesFiles) {
+        const paths = examenesFiles.map(file => '/uploads/' + file.filename);
+        rutasExamenes = JSON.stringify(paths);
+    }
     if (req.files['archivo_orden']) {
         rutaOrden = '/uploads/' + req.files['archivo_orden'][0].filename;
     }
