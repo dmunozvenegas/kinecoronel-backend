@@ -1,6 +1,7 @@
 const express = require('express');
 const dotenv = require('dotenv');
 const cors = require('cors');
+const path = require('path');
 
 // Cargar las variables de entorno
 dotenv.config();
@@ -24,7 +25,8 @@ app.use(cors({
 }));
 
 app.use(express.json()); 
-app.use('/uploads', express.static('uploads'));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/api/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // ---------------------------------------------------------------------
 // 1. RESPUESTAS JSON ESTÁNDAR

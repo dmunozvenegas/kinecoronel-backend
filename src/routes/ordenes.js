@@ -6,7 +6,8 @@ const path = require('path');
 const fs = require('fs');
 
 // --- CONFIGURACIÓN DE MULTER (PARA SUBIDA DE ARCHIVOS) ---
-const uploadDir = path.join(__dirname, '../../uploads');
+// CORRECCIÓN: Ahora retrocede solo un nivel para guardar en la raíz del backend
+const uploadDir = path.join(__dirname, '../uploads');
 if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
 }
@@ -69,18 +70,16 @@ router.post('/', upload.fields([
     
     let rutaOrden = null;
     let rutasExamenes = null;
-    // Y para capturarlo, revisamos si viene con o sin corchetes:
-    const examenesFiles = req.files['archivos_examenes'] || req.files['archivos_examenes[]'];
-    if (examenesFiles) {
-        const paths = examenesFiles.map(file => '/uploads/' + file.filename);
-        rutasExamenes = JSON.stringify(paths);
-    }
-    if (req.files['archivo_orden']) {
+
+    // CORRECCIÓN: Lógica limpia para capturar la orden
+    if (req.files && req.files['archivo_orden']) {
         rutaOrden = '/uploads/' + req.files['archivo_orden'][0].filename;
     }
 
-    if (req.files['archivos_examenes']) {
-        const paths = req.files['archivos_examenes'].map(file => '/uploads/' + file.filename);
+    // CORRECCIÓN: Lógica limpia para capturar exámenes (con o sin corchetes)
+    const examenesFiles = (req.files && req.files['archivos_examenes']) || (req.files && req.files['archivos_examenes[]']);
+    if (examenesFiles) {
+        const paths = examenesFiles.map(file => '/uploads/' + file.filename);
         rutasExamenes = JSON.stringify(paths);
     }
 
@@ -101,10 +100,12 @@ router.post('/', upload.fields([
         res.status(500).json({ error: "Error al guardar en la base de datos" });
     }
 });
+
 // 3.5 PUT: Editar una orden médica existente (Con subida opcional de archivos)
 router.put('/:id', upload.fields([
     { name: 'archivo_orden', maxCount: 1 },
-    { name: 'archivos_examenes', maxCount: 5 }
+    { name: 'archivos_examenes', maxCount: 5 },
+    { name: 'archivos_examenes[]', maxCount: 5 } // CORRECCIÓN: Agregado antibalas aquí también
 ]), async (req, res) => {
     const { id } = req.params;
     const { diagnostico, medico_derivante, sesiones_indicadas, fecha_emision } = req.body;
@@ -112,19 +113,17 @@ router.put('/:id', upload.fields([
     let rutaOrden = null;
     let rutasExamenes = null;
 
-    // Si el usuario subió una nueva orden, guardamos la nueva ruta
     if (req.files && req.files['archivo_orden']) {
         rutaOrden = '/uploads/' + req.files['archivo_orden'][0].filename;
     }
 
-    // Si el usuario subió nuevos exámenes, guardamos las nuevas rutas
-    if (req.files && req.files['archivos_examenes']) {
-        const paths = req.files['archivos_examenes'].map(file => '/uploads/' + file.filename);
+    const examenesFiles = (req.files && req.files['archivos_examenes']) || (req.files && req.files['archivos_examenes[]']);
+    if (examenesFiles) {
+        const paths = examenesFiles.map(file => '/uploads/' + file.filename);
         rutasExamenes = JSON.stringify(paths);
     }
 
     try {
-        // Usamos COALESCE: Si rutaOrden es NULL, mantiene el archivo_orden que ya estaba en la BD.
         const ordenActualizada = await pool.query(
             `UPDATE ordenes_medicas 
             SET diagnostico = $1, 
@@ -172,12 +171,10 @@ router.get('/sesiones/:orden_id', async (req, res) => {
 
 // 5. POST: Registrar una nueva sesión (Incrementa contador)
 router.post('/sesion', async (req, res) => {
-    // Agregamos 'fecha' a lo que recibimos del body
     const { orden_id, evolucion, terapias, fecha } = req.body; 
     const terapiasStr = terapias ? JSON.stringify(terapias) : null;
 
     try {
-        // Incluimos la fecha en el INSERT
         await pool.query(
             'INSERT INTO sesiones (orden_id, evolucion, terapias, fecha) VALUES ($1, $2, $3, $4)',
             [orden_id, evolucion, terapiasStr, fecha]
@@ -201,12 +198,10 @@ router.post('/sesion', async (req, res) => {
 // 6. PUT: Editar una sesión existente
 router.put('/sesion/:id', async (req, res) => {
     const { id } = req.params;
-    // Agregamos 'fecha' a lo que recibimos del body
     const { evolucion, terapias, fecha } = req.body;
     const terapiasStr = terapias ? JSON.stringify(terapias) : null;
 
     try {
-        // Incluimos la fecha en el UPDATE
         await pool.query(
             'UPDATE sesiones SET evolucion = $1, terapias = $2, fecha = $3 WHERE id = $4',
             [evolucion, terapiasStr, fecha, id]
@@ -215,6 +210,84 @@ router.put('/sesion/:id', async (req, res) => {
     } catch (error) {
         console.error("Error editando sesión:", error);
         res.status(500).json({ error: "Error al actualizar la sesión" });
+    }
+});
+
+// 7. DELETE: Eliminar una sesión
+router.delete('/sesion/:id', async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        // 1. Obtener a qué orden pertenece esta sesión antes de borrarla
+        const sesion = await pool.query('SELECT orden_id FROM sesiones WHERE id = $1', [id]);
+        if (sesion.rowCount === 0) {
+            return res.status(404).json({ error: "Sesión no encontrada" });
+        }
+        
+        const orden_id = sesion.rows[0].orden_id;
+
+        // 2. Eliminar la sesión de la base de datos
+        await pool.query('DELETE FROM sesiones WHERE id = $1', [id]);
+
+        // 3. Restar 1 al contador de sesiones realizadas en la orden médica (evitando números negativos)
+        await pool.query(
+            'UPDATE ordenes_medicas SET sesiones_realizadas = GREATEST(sesiones_realizadas - 1, 0) WHERE id = $1',
+            [orden_id]
+        );
+
+        res.status(200).json({ mensaje: "Evolución eliminada correctamente" });
+    } catch (error) {
+        console.error("Error eliminando sesión:", error);
+        res.status(500).json({ error: "Error al eliminar la evolución" });
+    }
+});
+
+// 8. DELETE: Eliminar una orden médica completa y limpiar sus archivos del servidor
+router.delete('/:id', async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        // 1. Obtener la orden para saber qué rutas de archivos debemos borrar físicamente
+        const ordenResult = await pool.query('SELECT archivo_orden, archivos_examenes FROM ordenes_medicas WHERE id = $1', [id]);
+        
+        if (ordenResult.rowCount === 0) {
+            return res.status(404).json({ error: "Orden no encontrada" });
+        }
+
+        const orden = ordenResult.rows[0];
+
+        // 2. Eliminar los archivos físicos del disco duro (si existen)
+        const baseDir = path.join(__dirname, '../'); // Sube a la raíz del backend
+        
+        // Borrar el archivo de la orden médica
+        if (orden.archivo_orden) {
+            const filePath = path.join(baseDir, orden.archivo_orden); // Ej: ../uploads/archivo.pdf
+            if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+        }
+
+        // Borrar los archivos de exámenes asociados
+        if (orden.archivos_examenes) {
+            try {
+                const examenes = JSON.parse(orden.archivos_examenes);
+                examenes.forEach(ruta => {
+                    const filePath = path.join(baseDir, ruta);
+                    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+                });
+            } catch (e) {
+                console.error("Error parseando exámenes para eliminar:", e);
+            }
+        }
+
+        // 3. Eliminar todas las sesiones (evoluciones) asociadas a esta orden por seguridad
+        await pool.query('DELETE FROM sesiones WHERE orden_id = $1', [id]);
+
+        // 4. Finalmente, eliminar la orden médica de la tabla
+        await pool.query('DELETE FROM ordenes_medicas WHERE id = $1', [id]);
+
+        res.status(200).json({ mensaje: "Orden y archivos eliminados correctamente" });
+    } catch (error) {
+        console.error("Error eliminando orden:", error);
+        res.status(500).json({ error: "Error al eliminar la orden médica" });
     }
 });
 
