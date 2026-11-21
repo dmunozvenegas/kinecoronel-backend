@@ -39,22 +39,21 @@ router.get('/premios', async (req, res) => {
 // ADMINISTRACIÓN DE PREMIOS DESDE EL CRM
 // =====================================================================
 
-// 1. Listar todos los premios (activos e inactivos) para el panel Admin
+// 1. Listar todos los premios para el panel Admin (sin fallar por nombres de columnas)
 router.get('/premios/admin', async (req, res) => {
     try {
         const result = await pool.query(
-            `SELECT id, orden, titulo, descripcion, etiqueta_ruleta, color_hex,
-                    stock_disponible, probabilidad_peso, activo
-             FROM feria_premios
-             ORDER BY orden ASC, id ASC`
+            'SELECT * FROM feria_premios ORDER BY orden ASC, id ASC'
         );
         res.json(result.rows);
     } catch (error) {
         console.error('Error listando premios admin:', error);
-        res.status(500).json({ error: 'No se pudieron cargar los premios para administración' });
+        res.status(500).json({ 
+            error: 'No se pudieron cargar los premios', 
+            detalle: error.message // <-- Nos dirá la causa exacta si algo más falla
+        });
     }
 });
-
 // 2. Crear un nuevo premio en la ruleta
 router.post('/premios', async (req, res) => {
     try {
@@ -283,21 +282,26 @@ router.post('/girar', async (req, res) => {
 router.get('/leads', async (req, res) => {
     try {
         const leadsRes = await pool.query(`
-            SELECT l.*, p.titulo AS premio_titulo, p.etiqueta_ruleta
+            SELECT l.*, p.titulo AS premio_titulo, p.color_hex
             FROM feria_leads l
             LEFT JOIN feria_premios p ON p.id = l.premio_id
-            ORDER BY l.creado_en DESC
+            ORDER BY l.id DESC
         `);
 
-        const stockRes = await pool.query('SELECT id, titulo, stock_disponible, probabilidad_peso FROM feria_premios ORDER BY orden ASC');
+        const stockRes = await pool.query(
+            'SELECT * FROM feria_premios ORDER BY orden ASC, id ASC'
+        );
 
-        res.status(200).json({
+        res.json({
             leads: leadsRes.rows,
             premios: stockRes.rows
         });
     } catch (error) {
-        console.error('Error obteniendo CRM feria:', error);
-        res.status(500).json({ error: 'Error cargando datos del CRM' });
+        console.error('Error cargando leads CRM:', error);
+        res.status(500).json({ 
+            error: 'Error cargando datos del CRM', 
+            detalle: error.message 
+        });
     }
 });
 
