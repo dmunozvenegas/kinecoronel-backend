@@ -1,13 +1,12 @@
-const express = require('express');
 const dotenv = require('dotenv');
+dotenv.config(); // <-- Siempre primero antes de importar rutas
+
+const express = require('express');
 const cors = require('cors');
 const path = require('path');
+
 const medicosRoutes = require('./routes/medicos'); 
 const feriaRoutes = require('./routes/feria');
-
-
-// Cargar las variables de entorno
-dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -20,8 +19,8 @@ app.use(cors({
         'http://localhost:5173', 
         'http://192.168.1.45:5173',
         'https://sistema.kinecoronel.cl',
-        'https://kinecoronel-frontend.vercel.app', // Agrega tu URL de Vercel aquí
-        /\.vercel\.app$/                           // Expresión regular para permitir cualquier subdominio de Vercel
+        'https://kinecoronel-frontend.vercel.app',
+        /\.vercel\.app$/
     ],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
@@ -33,7 +32,6 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/api/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/api/medicos', medicosRoutes);
 app.use('/api/feria', feriaRoutes);
-
 
 // ---------------------------------------------------------------------
 // 1. RESPUESTAS JSON ESTÁNDAR
@@ -64,9 +62,8 @@ const ReportesRoutes = require('./routes/reportes');
 const BotiKineRoutes = require('./routes/botikine');
 
 // ---------------------------------------------------------------------
-// 3. ENRUTAMIENTO DOBLE (Protección total contra recortes de cPanel)
+// 3. ENRUTAMIENTO DOBLE
 // ---------------------------------------------------------------------
-// Opción A: Rutas estándar
 app.use('/api/agenda', agendaRoutes);
 app.use('/api/pacientes', pacientesRoutes);
 app.use('/api/ordenes', ordenesRoutes);
@@ -75,7 +72,6 @@ app.use('/api/bonos', bonosRoutes);
 app.use('/api/reportes', ReportesRoutes);
 app.use('/api/botikine', BotiKineRoutes);
 
-// Opción B: Fallback para cPanel
 app.use('/agenda', agendaRoutes);
 app.use('/pacientes', pacientesRoutes);
 app.use('/ordenes', ordenesRoutes);
