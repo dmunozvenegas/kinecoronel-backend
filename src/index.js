@@ -18,7 +18,7 @@ const PORT = process.env.PORT || 3000;
 app.use(cors({
     origin: [
         'http://localhost:5173', 
-        'http://192.168.1.45:5173'.
+        'http://192.168.1.45:5173',
         'https://sistema.kinecoronel.cl',
         'https://kinecoronel-frontend.vercel.app', // Agrega tu URL de Vercel aquí
         /\.vercel\.app$/                           // Expresión regular para permitir cualquier subdominio de Vercel
