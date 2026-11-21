@@ -2,6 +2,9 @@ const express = require('express');
 const dotenv = require('dotenv');
 const cors = require('cors');
 const path = require('path');
+const medicosRoutes = require('./routes/medicos'); 
+const feriaRoutes = require('./routes/feria');
+
 
 // Cargar las variables de entorno
 dotenv.config();
@@ -15,6 +18,7 @@ const PORT = process.env.PORT || 3000;
 app.use(cors({
     origin: [
         'http://localhost:5173', 
+        'http://192.168.1.45:5173'.
         'https://sistema.kinecoronel.cl',
         'https://kinecoronel-frontend.vercel.app', // Agrega tu URL de Vercel aquí
         /\.vercel\.app$/                           // Expresión regular para permitir cualquier subdominio de Vercel
@@ -27,6 +31,9 @@ app.use(cors({
 app.use(express.json()); 
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/api/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/api/medicos', medicosRoutes);
+app.use('/api/feria', feriaRoutes);
+
 
 // ---------------------------------------------------------------------
 // 1. RESPUESTAS JSON ESTÁNDAR
@@ -76,6 +83,7 @@ app.use('/auth', authRoutes);
 app.use('/bonos', bonosRoutes); 
 app.use('/reportes', ReportesRoutes);
 app.use('/botikine', BotiKineRoutes);
+app.use('/feria', feriaRoutes);
 
 // ---------------------------------------------------------------------
 // 4. ARRANQUE DEL SERVIDOR
