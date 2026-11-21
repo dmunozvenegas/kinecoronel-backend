@@ -35,6 +35,143 @@ router.get('/premios', async (req, res) => {
         res.status(500).json({ error: 'Error cargando premios de la ruleta' });
     }
 });
+// =====================================================================
+// ADMINISTRACIÓN DE PREMIOS DESDE EL CRM
+// =====================================================================
+
+// 1. Listar todos los premios (activos e inactivos) para el panel Admin
+router.get('/premios/admin', async (req, res) => {
+    try {
+        const result = await pool.query(
+            `SELECT id, orden, titulo, descripcion, etiqueta_ruleta, color_hex,
+                    stock_disponible, probabilidad_peso, activo
+             FROM feria_premios
+             ORDER BY orden ASC, id ASC`
+        );
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error listando premios admin:', error);
+        res.status(500).json({ error: 'No se pudieron cargar los premios para administración' });
+    }
+});
+
+// 2. Crear un nuevo premio en la ruleta
+router.post('/premios', async (req, res) => {
+    try {
+        const {
+            orden = 1,
+            titulo,
+            descripcion = '',
+            etiqueta_ruleta,
+            color_hex = '#0284c7',
+            stock_disponible = 10,
+            probabilidad_peso = 10,
+            activo = true
+        } = req.body;
+
+        if (!titulo || !etiqueta_ruleta) {
+            return res.status(400).json({ error: 'El título y el texto corto de la ruleta son obligatorios' });
+        }
+
+        const result = await pool.query(
+            `INSERT INTO feria_premios
+             (orden, titulo, descripcion, etiqueta_ruleta, color_hex, stock_disponible, probabilidad_peso, activo)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+             RETURNING *`,
+            [
+                Number(orden) || 1,
+                titulo.trim(),
+                descripcion.trim(),
+                etiqueta_ruleta.trim(),
+                color_hex,
+                Math.max(0, Number(stock_disponible) || 0),
+                Math.max(1, Number(probabilidad_peso) || 1),
+                Boolean(activo)
+            ]
+        );
+
+        res.status(201).json(result.rows[0]);
+    } catch (error) {
+        console.error('Error creando premio:', error);
+        res.status(500).json({ error: 'Error al guardar el nuevo premio' });
+    }
+});
+
+// 3. Editar un premio existente (stock, texto, color, peso o activo)
+router.put('/premios/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const {
+            orden,
+            titulo,
+            descripcion,
+            etiqueta_ruleta,
+            color_hex,
+            stock_disponible,
+            probabilidad_peso,
+            activo
+        } = req.body;
+
+        const result = await pool.query(
+            `UPDATE feria_premios
+             SET orden = $1,
+                 titulo = $2,
+                 descripcion = $3,
+                 etiqueta_ruleta = $4,
+                 color_hex = $5,
+                 stock_disponible = $6,
+                 probabilidad_peso = $7,
+                 activo = $8
+             WHERE id = $9
+             RETURNING *`,
+            [
+                Number(orden) || 1,
+                titulo.trim(),
+                (descripcion || '').trim(),
+                etiqueta_ruleta.trim(),
+                color_hex || '#0284c7',
+                Math.max(0, Number(stock_disponible) || 0),
+                Math.max(1, Number(probabilidad_peso) || 1),
+                Boolean(activo),
+                id
+            ]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Premio no encontrado' });
+        }
+        res.json(result.rows[0]);
+    } catch (error) {
+        console.error('Error actualizando premio:', error);
+        res.status(500).json({ error: 'Error al actualizar el premio' });
+    }
+});
+
+// 4. Eliminar premio (si ya tiene ganadores asociados, lo oculta con activo = false para no perder historial)
+router.delete('/premios/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const uso = await pool.query('SELECT COUNT(*)::int AS total FROM feria_leads WHERE premio_id = $1', [id]);
+
+        if (uso.rows[0].total > 0) {
+            const soft = await pool.query(
+                'UPDATE feria_premios SET activo = FALSE WHERE id = $1 RETURNING *',
+                [id]
+            );
+            return res.json({
+                modo: 'desactivado',
+                mensaje: 'El premio ya tiene ganadores registrados, por lo que se desactivó de la ruleta sin borrar el historial.',
+                premio: soft.rows[0]
+            });
+        }
+
+        await pool.query('DELETE FROM feria_premios WHERE id = $1', [id]);
+        res.json({ modo: 'eliminado', mensaje: 'Premio eliminado correctamente' });
+    } catch (error) {
+        console.error('Error eliminando premio:', error);
+        res.status(500).json({ error: 'Error al eliminar el premio' });
+    }
+});
 
 // =========================================================
 // 2. POST PÚBLICO: Registrar encuesta + Girar Ruleta (Transaccional)
