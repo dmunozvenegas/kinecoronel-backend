@@ -54,7 +54,7 @@ router.get('/premios/admin', async (req, res) => {
         });
     }
 });
-// 2. Crear un nuevo premio en la ruleta
+// 2. Crear un nuevo premio en la ruleta (con auto-reparación de secuencia SERIAL)
 router.post('/premios', async (req, res) => {
     try {
         const {
@@ -72,6 +72,15 @@ router.post('/premios', async (req, res) => {
             return res.status(400).json({ error: 'El título y el texto corto de la ruleta son obligatorios' });
         }
 
+        // Asegura que la secuencia del ID esté al día antes de insertar
+        await pool.query(`
+            SELECT setval(
+                pg_get_serial_sequence('feria_premios', 'id'),
+                COALESCE((SELECT MAX(id) FROM feria_premios), 0) + 1,
+                false
+            )
+        `);
+
         const result = await pool.query(
             `INSERT INTO feria_premios
              (orden, titulo, descripcion, etiqueta_ruleta, color_hex, stock_disponible, probabilidad_peso, activo)
@@ -80,9 +89,9 @@ router.post('/premios', async (req, res) => {
             [
                 Number(orden) || 1,
                 titulo.trim(),
-                descripcion.trim(),
+                (descripcion || '').trim(),
                 etiqueta_ruleta.trim(),
-                color_hex,
+                color_hex || '#0284c7',
                 Math.max(0, Number(stock_disponible) || 0),
                 Math.max(1, Number(probabilidad_peso) || 1),
                 Boolean(activo)
@@ -91,8 +100,8 @@ router.post('/premios', async (req, res) => {
 
         res.status(201).json(result.rows[0]);
     } catch (error) {
-        console.error('Error creando premio:', error);
-        res.status(500).json({ error: 'Error al guardar el nuevo premio' });
+        console.error('Error detallado creando premio:', error);
+        res.status(500).json({ error: `Error al guardar el nuevo premio: ${error.message}` });
     }
 });
 
